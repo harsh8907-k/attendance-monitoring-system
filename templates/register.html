@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Registration - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">Attendance System</a>
+            <div class="navbar-links">
+                <a href="/register" class="navbar-link active">Register</a>
+                <a href="/login" class="navbar-link">Login</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-narrow" style="padding-top: 40px; padding-bottom: 40px;">
+        <div class="text-center mb-8">
+            <h1>Student Registration</h1>
+            <p class="text-muted">Complete all steps to register</p>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div class="progress-steps">
+            <div class="progress-step active" id="step1Indicator">
+                <div class="progress-step-circle">1</div>
+                <div class="progress-step-label">Information</div>
+            </div>
+            <div class="progress-step" id="step2Indicator">
+                <div class="progress-step-circle">2</div>
+                <div class="progress-step-label">Face Capture</div>
+            </div>
+            <div class="progress-step" id="step3Indicator">
+                <div class="progress-step-circle">3</div>
+                <div class="progress-step-label">Confirm</div>
+            </div>
+        </div>
+
+        <!-- Step 1: Student Information -->
+        <div id="step1" class="card">
+            <h2 class="card-title">Student Information</h2>
+            <p class="card-subtitle">Please enter your details</p>
+
+            <form id="infoForm">
+                <div class="form-group">
+                    <label class="form-label">Student ID *</label>
+                    <input type="text" id="studentId" class="form-input" placeholder="e.g., 2021-CS-001" required>
+                    <p class="form-help">Your unique student identification number</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Full Name *</label>
+                    <input type="text" id="studentName" class="form-input" placeholder="e.g., John Doe" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Department *</label>
+                    <select id="department" class="form-select" required>
+                        <option value="">Select department</option>
+                        <option value="Computer Science">Computer Science</option>
+                        <option value="Information Technology">Information Technology</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Mechanical">Mechanical</option>
+                        <option value="Civil">Civil</option>
+                        <option value="Electrical">Electrical</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Semester *</label>
+                    <select id="semester" class="form-select" required>
+                        <option value="">Select semester</option>
+                        <option value="1">Semester 1</option>
+                        <option value="2">Semester 2</option>
+                        <option value="3">Semester 3</option>
+                        <option value="4">Semester 4</option>
+                        <option value="5">Semester 5</option>
+                        <option value="6">Semester 6</option>
+                        <option value="7">Semester 7</option>
+                        <option value="8">Semester 8</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button" onclick="window.location.href='/'" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Next</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Step 2: Face Capture -->
+        <div id="step2" class="hidden">
+            <div class="card mb-6">
+                <h2 class="card-title">Capture Face Images</h2>
+                <p class="card-subtitle">We need to capture 10 images of your face for accurate recognition</p>
+
+                <!-- Capture Counter -->
+                <div class="alert alert-info mb-6">
+                    <strong>Captured: <span id="captureCount">0</span> / 10 images</strong>
+                    <p class="text-xs mt-2">Move your head slightly between captures for better accuracy</p>
+                </div>
+
+                <!-- Camera Section -->
+                <div class="camera-container mb-4">
+                    <video id="video" class="camera-video" autoplay playsinline></video>
+                    <canvas id="canvas" class="camera-canvas"></canvas>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="camera-status mb-4">
+                    <div class="flex items-center justify-center gap-3">
+                        <div class="loading-spinner"></div>
+                        <span>Loading camera...</span>
+                    </div>
+                </div>
+
+                <!-- Status Display -->
+                <div id="statusDisplay" class="camera-status hidden mb-4">
+                    <span id="statusText">Position your face in the frame</span>
+                </div>
+
+                <!-- Capture Button -->
+                <button id="captureBtn" class="btn btn-primary w-full mb-4" disabled>
+                    Capture Image
+                </button>
+
+                <!-- Thumbnails -->
+                <div id="thumbnails" class="thumbnail-grid mb-6"></div>
+
+                <!-- Navigation -->
+                <div class="flex gap-3">
+                    <button type="button" onclick="goToStep(1)" class="btn btn-secondary">Back</button>
+                    <button type="button" id="retakeBtn" onclick="retakeAll()" class="btn btn-outline">Retake
+                        All</button>
+                    <button type="button" id="nextBtn" onclick="goToStep(3)" class="btn btn-primary" style="flex: 1;"
+                        disabled>Next</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Review & Confirm -->
+        <div id="step3" class="hidden">
+            <div class="card">
+                <h2 class="card-title">Review & Confirm</h2>
+                <p class="card-subtitle">Please verify your information before registering</p>
+
+                <div class="mb-6" style="background: var(--color-bg); padding: 20px; border-radius: 8px;">
+                    <div class="mb-3">
+                        <p class="text-xs text-muted mb-1">Student ID</p>
+                        <p id="reviewId" style="font-weight: 500;"></p>
+                    </div>
+                    <div class="mb-3">
+                        <p class="text-xs text-muted mb-1">Full Name</p>
+                        <p id="reviewName" style="font-weight: 500;"></p>
+                    </div>
+                    <div class="mb-3">
+                        <p class="text-xs text-muted mb-1">Department</p>
+                        <p id="reviewDept" style="font-weight: 500;"></p>
+                    </div>
+                    <div class="mb-3">
+                        <p class="text-xs text-muted mb-1">Semester</p>
+                        <p id="reviewSem" style="font-weight: 500;"></p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-muted mb-1">Face Images Captured</p>
+                        <p style="font-weight: 500;"><span id="reviewImageCount">10</span> images</p>
+                    </div>
+                </div>
+
+                <div id="errorMsg" class="alert alert-error hidden mb-4"></div>
+                <div id="successMsg" class="alert alert-success hidden mb-4"></div>
+
+                <div class="flex gap-3">
+                    <button type="button" onclick="goToStep(2)" class="btn btn-secondary">Back</button>
+                    <button type="button" id="registerBtn" onclick="registerStudent()" class="btn btn-primary"
+                        style="flex: 1;">
+                        Register
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Face-api.js -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+        // State
+        let currentStep = 1;
+        let studentData = {};
+        let video, canvas, ctx;
+        let capturedDescriptors = [];
+        let capturedImages = [];
+        const REQUIRED_CAPTURES = 10;
+
+        // Step navigation
+        function goToStep(step) {
+            // Hide all steps
+            document.getElementById('step1').classList.add('hidden');
+            document.getElementById('step2').classList.add('hidden');
+            document.getElementById('step3').classList.add('hidden');
+
+            // Update indicators
+            ['step1Indicator', 'step2Indicator', 'step3Indicator'].forEach(id => {
+                document.getElementById(id).classList.remove('active', 'completed');
+            });
+
+            // Show current step
+            document.getElementById('step' + step).classList.remove('hidden');
+            document.getElementById('step' + step + 'Indicator').classList.add('active');
+
+            // Mark previous steps as completed
+            for (let i = 1; i < step; i++) {
+                document.getElementById('step' + i + 'Indicator').classList.add('completed');
+            }
+
+            currentStep = step;
+
+            // Initialize step 2
+            if (step === 2) {
+                setTimeout(() => {
+                    loadModelsAndStartCamera();
+                }, 100);
+            }
+
+            // Populate step 3
+            if (step === 3) {
+                document.getElementById('reviewId').textContent = studentData.id;
+                document.getElementById('reviewName').textContent = studentData.name;
+                document.getElementById('reviewDept').textContent = studentData.department;
+                document.getElementById('reviewSem').textContent = 'Semester ' + studentData.semester;
+                document.getElementById('reviewImageCount').textContent = capturedDescriptors.length;
+            }
+        }
+
+        // Step 1: Form submission
+        document.getElementById('infoForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            studentData = {
+                id: document.getElementById('studentId').value.trim(),
+                name: document.getElementById('studentName').value.trim(),
+                department: document.getElementById('department').value,
+                semester: document.getElementById('semester').value
+            };
+
+            goToStep(2);
+        });
+
+        // Step 2: Face capture logic
+        async function loadModelsAndStartCamera() {
+            try {
+                document.getElementById('loadingState').classList.remove('hidden');
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri('../models/'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('../models/'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('../models/')
+                ]);
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: 'user' }
+                });
+
+                video = document.getElementById('video');
+                canvas = document.getElementById('canvas');
+                ctx = canvas.getContext('2d');
+
+                video.srcObject = stream;
+
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    document.getElementById('loadingState').classList.add('hidden');
+                    document.getElementById('statusDisplay').classList.remove('hidden');
+                    document.getElementById('captureBtn').disabled = false;
+                    detectFace();
+                });
+            } catch (error) {
+                alert('Camera access denied or models failed to load: ' + error.message);
+            }
+        }
+
+        async function detectFace() {
+            if (!video || !video.videoWidth) return;
+
+            const detections = await faceapi
+                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptors();
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const statusText = document.getElementById('statusText');
+            const captureBtn = document.getElementById('captureBtn');
+
+            if (detections.length === 0) {
+                statusText.textContent = 'No face detected. Please position your face in the frame.';
+                captureBtn.disabled = true;
+            } else if (detections.length > 1) {
+                statusText.textContent = 'Multiple faces detected. Ensure only one person is in frame.';
+                captureBtn.disabled = true;
+            } else {
+                const box = detections[0].detection.box;
+                ctx.strokeStyle = 'var(--color-primary)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                statusText.textContent = 'Face detected! Click "Capture Image" to capture.';
+                captureBtn.disabled = false;
+            }
+
+            requestAnimationFrame(detectFace);
+        }
+
+        document.getElementById('captureBtn').addEventListener('click', async () => {
+            const detections = await faceapi
+                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptors();
+
+            if (detections.length === 1) {
+                const descriptor = detections[0].descriptor;
+                capturedDescriptors.push(Array.from(descriptor));
+
+                // Capture image as base64
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth;
+                tempCanvas.height = video.videoHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(video, 0, 0);
+                const imageData = tempCanvas.toDataURL('image/jpeg', 0.8);
+                capturedImages.push(imageData);
+
+                // Update UI
+                updateCaptureUI();
+
+                if (capturedDescriptors.length >= REQUIRED_CAPTURES) {
+                    document.getElementById('nextBtn').disabled = false;
+                    document.getElementById('statusText').textContent = 'All images captured! Click Next to continue.';
+                }
+            }
+        });
+
+        function updateCaptureUI() {
+            document.getElementById('captureCount').textContent = capturedDescriptors.length;
+
+            const thumbnails = document.getElementById('thumbnails');
+            thumbnails.innerHTML = '';
+
+            capturedImages.forEach((img, index) => {
+                const imgEl = document.createElement('img');
+                imgEl.src = img;
+                imgEl.className = 'thumbnail';
+                thumbnails.appendChild(imgEl);
+            });
+        }
+
+        function retakeAll() {
+            if (confirm('Are you sure you want to retake all images?')) {
+                capturedDescriptors = [];
+                capturedImages = [];
+                updateCaptureUI();
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('statusText').textContent = 'Position your face in the frame';
+            }
+        }
+
+        // Step 3: Registration
+        async function registerStudent() {
+            const registerBtn = document.getElementById('registerBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const successMsg = document.getElementById('successMsg');
+
+            registerBtn.disabled = true;
+            registerBtn.textContent = 'Registering...';
+            errorMsg.classList.add('hidden');
+            successMsg.classList.add('hidden');
+
+            try {
+                // Average descriptors
+                const avgDescriptor = averageDescriptors(capturedDescriptors);
+
+                const response = await fetch('/api/register-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        student_id: studentData.id,
+                        name: studentData.name,
+                        department: studentData.department,
+                        semester: studentData.semester,
+                        face_descriptor: avgDescriptor
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    successMsg.textContent = 'Registration successful! Redirecting to dashboard...';
+                    successMsg.classList.remove('hidden');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                } else {
+                    errorMsg.textContent = result.message || 'Registration failed';
+                    errorMsg.classList.remove('hidden');
+                    registerBtn.disabled = false;
+                    registerBtn.textContent = 'Register';
+                }
+            } catch (error) {
+                errorMsg.textContent = 'Error: ' + error.message;
+                errorMsg.classList.remove('hidden');
+                registerBtn.disabled = false;
+                registerBtn.textContent = 'Register';
+            }
+        }
+
+        function averageDescriptors(descriptors) {
+            const avgDescriptor = new Array(128).fill(0);
+            descriptors.forEach(descriptor => {
+                descriptor.forEach((value, index) => {
+                    avgDescriptor[index] += value;
+                });
+            });
+            return avgDescriptor.map(value => value / descriptors.length);
+        }
+    </script>
+</body>
+
+</html>

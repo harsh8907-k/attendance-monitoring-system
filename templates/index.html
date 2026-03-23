@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <div class="min-h-screen flex flex-col">
+        <!-- Navigation -->
+        <nav class="navbar">
+            <div class="navbar-content">
+                <a href="/" class="navbar-brand">Attendance System</a>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <div class="landing-hero">
+            <div class="container-narrow">
+                <h1>Face Recognition Attendance</h1>
+                <p class="text-muted">Automated attendance tracking system using facial recognition technology</p>
+
+                <!-- Login Cards -->
+                <div class="landing-cards mt-8">
+                    <!-- Student Login Card -->
+                    <a href="/login" class="landing-card">
+                        <div class="card card-hover">
+                            <div class="text-center">
+                                <div style="font-size: 48px; margin-bottom: 16px;">👤</div>
+                                <h3 class="card-title">Student Login</h3>
+                                <p class="text-muted" style="margin-bottom: 20px;">
+                                    Login using face recognition to mark your attendance automatically
+                                </p>
+                                <span class="btn btn-primary w-full">Access Student Portal</span>
+                            </div>
+                        </div>
+                    </a>
+
+                    <!-- Admin Login Card -->
+                    <a href="/admin-login" class="landing-card">
+                        <div class="card card-hover">
+                            <div class="text-center">
+                                <div style="font-size: 48px; margin-bottom: 16px;">🔐</div>
+                                <h3 class="card-title">Admin Login</h3>
+                                <p class="text-muted" style="margin-bottom: 20px;">
+                                    Access the administration dashboard to manage students
+                                </p>
+                                <span class="btn btn-secondary w-full">Access Admin Panel</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+
+                <!-- Features List -->
+                <div class="card mt-8">
+                    <h3 class="card-title text-center mb-6">System Features</h3>
+                    <div class="grid grid-2">
+                        <div class="text-sm">
+                            <p class="mb-2">✓ Automated face recognition</p>
+                            <p class="mb-2">✓ Real-time attendance tracking</p>
+                            <p>✓ Secure authentication</p>
+                        </div>
+                        <div class="text-sm">
+                            <p class="mb-2">✓ Attendance analytics</p>
+                            <p class="mb-2">✓ CSV export capability</p>
+                            <p>✓ Admin dashboard</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Register Link -->
+                <div class="text-center mt-6">
+                    <p class="text-muted">
+                        New student?
+                        <a href="/register" style="color: var(--color-primary); text-decoration: underline;">Register
+                            here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

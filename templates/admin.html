@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/admin" class="navbar-brand">Admin Dashboard</a>
+            <div class="navbar-links">
+                <span class="navbar-link" style="cursor: default;">Administrator</span>
+                <button onclick="logout()" class="btn btn-sm btn-secondary">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container" style="padding-top: 40px; padding-bottom: 40px;">
+        <div class="mb-8">
+            <h1>Students & Attendance Management</h1>
+            <p class="text-muted">Monitor and manage all student attendance records</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="dashboard-stats mb-8">
+            <div class="stat-card">
+                <div class="stat-value" id="totalStudents">0</div>
+                <div class="stat-label">Total Students</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalClasses">0</div>
+                <div class="stat-label">Total Classes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="avgAttendance">0%</div>
+                <div class="stat-label">Avg Attendance</div>
+            </div>
+        </div>
+
+        <!-- Students Table -->
+        <div class="card">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="card-title" style="margin-bottom: 0;">All Students</h2>
+                <div class="flex gap-3">
+                    <input type="text" id="searchInput" class="form-input" placeholder="Search students..."
+                        style="width: 250px; margin-bottom: 0;">
+                    <select id="deptFilter" class="form-select" style="width: auto; margin-bottom: 0;">
+                        <option value="">All Departments</option>
+                    </select>
+                    <button onclick="exportAll()" class="btn btn-sm btn-secondary">
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div id="loadingState" class="text-center text-muted" style="padding: 40px;">
+                Loading students...
+            </div>
+
+            <div id="noStudents" class="text-center text-muted hidden" style="padding: 40px;">
+                No students found
+            </div>
+
+            <div id="tableContainer" class="table-container hidden">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Semester</th>
+                            <th>Total Days</th>
+                            <th>Present</th>
+                            <th>Attendance</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allStudents = [];
+        let filteredStudents = [];
+
+        // Load students on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadStudents();
+            setupFilters();
+        });
+
+        // Load all students
+        async function loadStudents() {
+            try {
+                const response = await fetch('/api/admin/students');
+                const data = await response.json();
+
+                if (data.success) {
+                    allStudents = data.students;
+                    filteredStudents = allStudents;
+
+                    document.getElementById('loadingState').classList.add('hidden');
+
+                    if (allStudents.length === 0) {
+                        document.getElementById('noStudents').classList.remove('hidden');
+                    } else {
+                        populateDepartmentFilter();
+                        displayStudents();
+                        updateStats();
+                    }
+                } else {
+                    document.getElementById('loadingState').textContent = 'Error loading students';
+                }
+            } catch (error) {
+                console.error('Error loading students:', error);
+                document.getElementById('loadingState').textContent = 'Error loading students';
+            }
+        }
+
+        // Populate department filter
+        function populateDepartmentFilter() {
+            const deptFilter = document.getElementById('deptFilter');
+            const departments = [...new Set(allStudents.map(s => s.department))];
+
+            departments.forEach(dept => {
+                const option = document.createElement('option');
+                option.value = dept;
+                option.textContent = dept;
+                deptFilter.appendChild(option);
+            });
+        }
+
+        // Setup filters
+        function setupFilters() {
+            const searchInput = document.getElementById('searchInput');
+            const deptFilter = document.getElementById('deptFilter');
+
+            searchInput.addEventListener('input', filterStudents);
+            deptFilter.addEventListener('change', filterStudents);
+        }
+
+        // Filter students
+        function filterStudents() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const selectedDept = document.getElementById('deptFilter').value;
+
+            filteredStudents = allStudents.filter(student => {
+                const matchesSearch =
+                    student.name.toLowerCase().includes(searchTerm) ||
+                    student.student_id.toLowerCase().includes(searchTerm);
+
+                const matchesDept = !selectedDept || student.department === selectedDept;
+
+                return matchesSearch && matchesDept;
+            });
+
+            displayStudents();
+        }
+
+        // Display students in table
+        function displayStudents() {
+            const tbody = document.getElementById('studentsTableBody');
+            const tableContainer = document.getElementById('tableContainer');
+            const noStudents = document.getElementById('noStudents');
+
+            if (filteredStudents.length === 0) {
+                tableContainer.classList.add('hidden');
+                noStudents.classList.remove('hidden');
+                return;
+            }
+
+            tableContainer.classList.remove('hidden');
+            noStudents.classList.add('hidden');
+
+            tbody.innerHTML = filteredStudents.map(student => {
+                let badgeClass = '';
+                if (student.percentage >= 90) badgeClass = 'badge-success';
+                else if (student.percentage >= 75) badgeClass = 'badge-neutral';
+                else if (student.percentage >= 50) badgeClass = 'badge-warning';
+                else badgeClass = 'badge-error';
+
+                return `
+                    <tr>
+                        <td>${escapeHtml(student.student_id)}</td>
+                        <td style="font-weight: 500;">${escapeHtml(student.name)}</td>
+                        <td>${escapeHtml(student.department)}</td>
+                        <td>Semester ${student.semester}</td>
+                        <td>${student.total_days}</td>
+                        <td>${student.present_days}</td>
+                        <td><span class="badge ${badgeClass}">${student.percentage}%</span></td>
+                        <td>
+                            <button onclick="deleteStudent('${escapeHtml(student.student_id)}', '${escapeHtml(student.name)}')" 
+                                    class="btn btn-sm" 
+                                    style="background: var(--color-error); color: white; padding: 6px 12px;">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('totalStudents').textContent = allStudents.length;
+
+            if (allStudents.length > 0) {
+                const maxClasses = Math.max(...allStudents.map(s => s.total_days), 0);
+                document.getElementById('totalClasses').textContent = maxClasses;
+
+                const avgPercentage = allStudents.reduce((sum, s) => sum + s.percentage, 0) / allStudents.length;
+                document.getElementById('avgAttendance').textContent = Math.round(avgPercentage) + '%';
+            }
+        }
+
+        // Export all attendance
+        async function exportAll() {
+            try {
+                window.location.href = '/api/admin/export-all';
+            } catch (error) {
+                console.error('Export error:', error);
+                alert('Failed to export data');
+            }
+        }
+
+        // Delete student
+        async function deleteStudent(studentId, studentName) {
+            // Confirmation dialog
+            if (!confirm(`Are you sure you want to delete student "${studentName}" (${studentId})?\n\nThis will permanently remove:\n- Student record\n- All attendance history\n\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/admin/delete-student/${studentId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Remove from local arrays
+                    allStudents = allStudents.filter(s => s.student_id !== studentId);
+                    filteredStudents = filteredStudents.filter(s => s.student_id !== studentId);
+
+                    // Refresh display
+                    displayStudents();
+                    updateStats();
+
+                    alert(`Student "${studentName}" has been deleted successfully.`);
+                } else {
+                    alert('Error: ' + (result.message || 'Failed to delete student'));
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('Failed to delete student: ' + error.message);
+            }
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/admin-login';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/admin-login';
+            }
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>

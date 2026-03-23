@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -37,6 +38,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -56,8 +58,15 @@
         }
 
         @keyframes shimmer {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
         }
 
         .subtitle {
@@ -94,8 +103,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
-            50% { box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4); }
+
+            0%,
+            100% {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
+            }
         }
 
         #video {
@@ -134,6 +150,7 @@
                 opacity: 0;
                 transform: translateX(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -154,8 +171,15 @@
         }
 
         @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-5px);
+            }
         }
 
         .current-person {
@@ -176,8 +200,15 @@
         }
 
         @keyframes glow {
-            0%, 100% { box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
-            50% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.6); }
+
+            0%,
+            100% {
+                box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+            }
         }
 
         .controls {
@@ -289,6 +320,7 @@
                 opacity: 0;
                 transform: translateX(-30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -347,8 +379,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .error-message {
@@ -393,6 +430,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>🎯 Real-Time Face Recognition</h1>
@@ -456,10 +494,10 @@
 
     <!-- Load face-api.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    
+
     <script>
         // Configuration
-        const MODELS_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/';
+        const MODELS_URL = './models/';
         const MIN_CONFIDENCE = 0.6;
         const ENTRY_DELAY = 1000; // 1 second delay before logging entry
         const EXIT_DELAY = 60000; // 60 seconds before logging exit
@@ -475,26 +513,61 @@
         let attendanceLog = [];
         let detectionInterval = null;
 
+        // Load face-api models from CDN (requires internet on first load)
+        async function loadModels() {
+            const loadingEl = document.getElementById('loading');
+            if (typeof faceapi === 'undefined') {
+                loadingEl.innerHTML =
+                    '<div class="error-message">' +
+                    '<strong>Face recognition library could not be loaded.</strong><br>' +
+                    'This usually means no internet connection when the page loaded, or the CDN is blocked. ' +
+                    'Connect to the internet and <a href="" onclick="location.reload(); return false;">refresh the page</a>.' +
+                    '<br><br><button class="btn-start" onclick="location.reload();" style="margin-top:10px;">Refresh page</button>' +
+                    '</div>';
+                loadingEl.style.display = 'block';
+                return;
+            }
+            try {
+                loadingEl.innerHTML = '<div class="spinner"></div><p>Loading face recognition models...</p>';
+                loadingEl.style.display = 'block';
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL)
+                ]);
+                loadingEl.style.display = 'none';
+                console.log('Models loaded successfully');
+            } catch (error) {
+                const errorDetail = error.message || String(error);
+                loadingEl.innerHTML =
+                    '<div class="error-message">' +
+                    '<strong>Models could not be loaded.</strong><br>' +
+                    'The face recognition models are loaded from the internet (CDN). ' +
+                    'Please check: your internet connection, firewall, or try again later.' +
+                    '<br><br><small>Technical: ' + escapeHtml(errorDetail) + '</small>' +
+                    '<br><br><button class="btn-start" id="retryModelsBtn" style="margin-top:10px;">Retry loading models</button>' +
+                    '</div>';
+                loadingEl.style.display = 'block';
+                document.getElementById('retryModelsBtn').addEventListener('click', () => loadModels());
+                console.error('Error loading models:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
             video = document.getElementById('video');
             canvas = document.getElementById('canvas');
             ctx = canvas.getContext('2d');
 
-            // Load models
-            try {
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
-                    faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL)
-                ]);
-                document.getElementById('loading').style.display = 'none';
-                console.log('Models loaded successfully');
-            } catch (error) {
-                document.getElementById('loading').innerHTML = 
-                    '<div class="error-message">Error loading models. Please check your internet connection.</div>';
-                console.error('Error loading models:', error);
-            }
+            // Load models (with retry support)
+            await loadModels();
 
             // Load attendance from localStorage
             loadAttendance();
@@ -510,12 +583,12 @@
             if (isRunning) return;
 
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        width: 640, 
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
                         height: 480,
                         facingMode: 'user'
-                    } 
+                    }
                 });
                 video.srcObject = stream;
                 isRunning = true;
@@ -550,7 +623,7 @@
             }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            document.getElementById('currentPerson').innerHTML = 
+            document.getElementById('currentPerson').innerHTML =
                 '<span>Recognition stopped</span>';
 
             document.getElementById('startBtn').disabled = false;
@@ -611,13 +684,13 @@
 
             // Update current person display
             if (hasMatch) {
-                document.getElementById('currentPerson').innerHTML = 
+                document.getElementById('currentPerson').innerHTML =
                     `<span class="person-name">${currentName}</span>`;
             } else if (resizedDetections.length > 0) {
-                document.getElementById('currentPerson').innerHTML = 
+                document.getElementById('currentPerson').innerHTML =
                     '<span style="color: #ff6b6b;">Unknown Person Detected</span>';
             } else {
-                document.getElementById('currentPerson').innerHTML = 
+                document.getElementById('currentPerson').innerHTML =
                     '<span>No face detected</span>';
             }
         }
@@ -689,7 +762,7 @@
         // Update attendance display
         function updateAttendanceDisplay() {
             const list = document.getElementById('attendanceList');
-            
+
             if (attendanceLog.length === 0) {
                 list.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No attendance records yet.</p>';
                 return;
@@ -780,7 +853,7 @@
                         .detectSingleFace(img)
                         .withFaceLandmarks()
                         .withFaceDescriptor();
-                    
+
                     if (detection) {
                         knownFaceDescriptors.push(detection.descriptor);
                         knownFaceNames.push(face.name);
@@ -795,4 +868,5 @@
         // loadKnownFaces();
     </script>
 </body>
+
 </html>

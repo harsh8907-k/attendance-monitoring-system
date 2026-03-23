@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <div class="min-h-screen flex items-center justify-center" style="padding: 40px 20px;">
+        <div class="container-narrow">
+            <div class="text-center mb-8">
+                <div style="font-size: 48px; margin-bottom: 16px;">🔐</div>
+                <h1>Admin Login</h1>
+                <p class="text-muted">Access the administration dashboard</p>
+            </div>
+
+            <div class="card">
+                <div id="errorMsg" class="alert alert-error hidden mb-4"></div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label">Admin Password</label>
+                        <input type="password" id="password" class="form-input" placeholder="Enter admin password"
+                            required autofocus>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-full mb-4">
+                        Login as Admin
+                    </button>
+                </form>
+
+                <div class="text-center text-sm">
+                    <a href="/login" style="color: var(--color-primary); text-decoration: underline;">
+                        ← Student Login
+                    </a>
+                    <span style="color: var(--color-text-muted); margin: 0 8px;">|</span>
+                    <a href="/register" style="color: var(--color-primary); text-decoration: underline;">
+                        Register Student
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            errorMsg.classList.add('hidden');
+
+            try {
+                const response = await fetch('/api/admin-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    window.location.href = '/admin';
+                } else {
+                    errorMsg.textContent = result.message || 'Invalid password';
+                    errorMsg.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Login as Admin';
+                }
+            } catch (error) {
+                errorMsg.textContent = 'Login failed: ' + error.message;
+                errorMsg.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Login as Admin';
+            }
+        });
+    </script>
+</body>
+
+</html>

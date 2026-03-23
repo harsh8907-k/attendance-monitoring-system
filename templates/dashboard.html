@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">Attendance System</a>
+            <div class="navbar-links">
+                <span class="navbar-link" style="cursor: default;">
+                    <span id="studentName">Student</span>
+                </span>
+                <button onclick="logout()" class="btn btn-sm btn-secondary">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container" style="padding-top: 40px; padding-bottom: 40px;">
+        <div class="mb-8">
+            <h1>Welcome, <span id="welcomeName">Student</span></h1>
+            <p class="text-muted">View your attendance records and statistics</p>
+        </div>
+
+        <!-- Alert for already marked attendance -->
+        <div id="attendanceAlert" class="alert alert-success hidden mb-6">
+            Attendance marked successfully today!
+        </div>
+
+        <div id="alreadyMarkedAlert" class="alert alert-info hidden mb-6">
+            Attendance was already marked today.
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="dashboard-stats mb-8">
+            <div class="stat-card">
+                <div class="stat-value" id="totalDays">0</div>
+                <div class="stat-label">Total Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="presentDays">0</div>
+                <div class="stat-label">Present Days</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="attendanceRate">0%</div>
+                <div class="stat-label">Attendance Rate</div>
+            </div>
+        </div>
+
+        <!-- Attendance Chart -->
+        <div class="card mb-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="card-title" style="margin-bottom: 0;">Attendance Trend</h2>
+                <select id="chartPeriod" class="form-select" style="width: auto; font-size: 14px;">
+                    <option value="30">Last 30 days</option>
+                    <option value="60">Last 60 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <div class="chart-container">
+                <canvas id="attendanceChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Attendance History -->
+        <div class="card">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="card-title" style="margin-bottom: 0;">Attendance History</h2>
+                <div class="flex gap-3">
+                    <select id="monthFilter" class="form-select" style="width: auto; font-size: 14px;">
+                        <option value="">All months</option>
+                    </select>
+                    <button onclick="exportCSV()" class="btn btn-sm btn-secondary">
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div id="noRecords" class="text-center text-muted" style="padding: 40px;">
+                No attendance records found
+            </div>
+
+            <div id="tableContainer" class="table-container hidden">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let studentData = null;
+        let attendanceRecords = [];
+        let attendanceChart = null;
+
+        // Fetch student data
+        async function fetchStudentData() {
+            try {
+                const response = await fetch('/api/student-data');
+                const result = await response.json();
+
+                if (result.success) {
+                    studentData = result;
+                    displayStudentData();
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // Display student data
+        function displayStudentData() {
+            const { student, stats, attendance_records, attendance_just_marked } = studentData;
+
+            // Debug logging
+            console.log('Student Data:', studentData);
+            console.log('Attendance Records:', attendance_records);
+            console.log('Number of records:', attendance_records ? attendance_records.length : 0);
+
+            // Update name
+            document.getElementById('studentName').textContent = student.name;
+            document.getElementById('welcomeName').textContent = student.name;
+
+            // Update stats
+            document.getElementById('totalDays').textContent = stats.total_days;
+            document.getElementById('presentDays').textContent = stats.present_days;
+
+            const rate = stats.total_days > 0
+                ? Math.round((stats.present_days / stats.total_days) * 100)
+                : 0;
+            document.getElementById('attendanceRate').textContent = rate + '%';
+
+            // Show attendance alert
+            if (attendance_just_marked) {
+                document.getElementById('attendanceAlert').classList.remove('hidden');
+            } else if (stats.marked_today) {
+                document.getElementById('alreadyMarkedAlert').classList.remove('hidden');
+            }
+
+            // Store records
+            attendanceRecords = attendance_records || [];
+            console.log('Stored attendance records:', attendanceRecords);
+
+            // Populate month filter
+            populateMonthFilter();
+
+            // Display table
+            displayAttendanceTable();
+
+            // Create chart
+            createAttendanceChart();
+        }
+
+        // Populate month filter
+        function populateMonthFilter() {
+            const monthFilter = document.getElementById('monthFilter');
+            const months = new Set();
+
+            attendanceRecords.forEach(record => {
+                const date = new Date(record.date);
+                const monthYear = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                months.add(monthYear);
+            });
+
+            months.forEach(month => {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = month;
+                monthFilter.appendChild(option);
+            });
+
+            monthFilter.addEventListener('change', displayAttendanceTable);
+        }
+
+        // Display attendance table
+        function displayAttendanceTable() {
+            const tbody = document.getElementById('attendanceTableBody');
+            const monthFilter = document.getElementById('monthFilter').value;
+            tbody.innerHTML = '';
+
+            let filteredRecords = attendanceRecords;
+
+            if (monthFilter) {
+                filteredRecords = attendanceRecords.filter(record => {
+                    const date = new Date(record.date);
+                    const monthYear = date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                    return monthYear === monthFilter;
+                });
+            }
+
+            if (filteredRecords.length === 0) {
+                document.getElementById('noRecords').classList.remove('hidden');
+                document.getElementById('tableContainer').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('noRecords').classList.add('hidden');
+            document.getElementById('tableContainer').classList.remove('hidden');
+
+            filteredRecords.forEach(record => {
+                const row = document.createElement('tr');
+
+                const dateCell = document.createElement('td');
+                const date = new Date(record.date);
+                dateCell.textContent = date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+
+                const timeCell = document.createElement('td');
+                timeCell.textContent = record.time;
+
+                const statusCell = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+
+                if (record.status === 'Present') {
+                    badge.className += ' badge-success';
+                } else if (record.status === 'Late') {
+                    badge.className += ' badge-warning';
+                } else {
+                    badge.className += ' badge-neutral';
+                }
+
+                badge.textContent = record.status;
+                statusCell.appendChild(badge);
+
+                row.appendChild(dateCell);
+                row.appendChild(timeCell);
+                row.appendChild(statusCell);
+                tbody.appendChild(row);
+            });
+        }
+
+        // Create attendance chart
+        function createAttendanceChart() {
+            const ctx = document.getElementById('attendanceChart').getContext('2d');
+
+            // Get last 30 days of data
+            const chartData = getChartData(30);
+
+            attendanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Attendance',
+                        data: chartData.data,
+                        borderColor: '#111827',
+                        backgroundColor: 'rgba(17, 24, 39, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#111827',
+                            padding: 12,
+                            titleColor: '#FFFFFF',
+                            bodyColor: '#FFFFFF',
+                            borderColor: '#E5E7EB',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            ticks: {
+                                callback: function (value) {
+                                    return value === 1 ? 'Present' : (value === 0 ? 'Absent' : '');
+                                },
+                                color: '#9CA3AF'
+                            },
+                            grid: {
+                                color: '#E5E7EB'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: '#9CA3AF'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update chart on period change
+            document.getElementById('chartPeriod').addEventListener('change', (e) => {
+                const days = parseInt(e.target.value);
+                const chartData = getChartData(days);
+                attendanceChart.data.labels = chartData.labels;
+                attendanceChart.data.datasets[0].data = chartData.data;
+                attendanceChart.update();
+            });
+        }
+
+        // Get chart data
+        function getChartData(days) {
+            const labels = [];
+            const data = [];
+            const today = new Date();
+
+            // Create a map of dates with attendance
+            const attendanceMap = {};
+            attendanceRecords.forEach(record => {
+                attendanceMap[record.date] = record.status === 'Present' ? 1 : 0;
+            });
+
+            // Generate data for last N days
+            for (let i = days - 1; i >= 0; i--) {
+                const date = new Date(today);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+
+                labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                data.push(attendanceMap[dateStr] !== undefined ? attendanceMap[dateStr] : null);
+            }
+
+            return { labels, data };
+        }
+
+        // Export CSV
+        async function exportCSV() {
+            try {
+                window.location.href = '/api/export-attendance';
+            } catch (error) {
+                alert('Export failed: ' + error.message);
+            }
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/';
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchStudentData();
+        });
+    </script>
+</body>
+
+</html>

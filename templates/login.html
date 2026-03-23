@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Login - Attendance System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="navbar-brand">Attendance System</a>
+            <div class="navbar-links">
+                <a href="/register" class="navbar-link">Register</a>
+                <a href="/login" class="navbar-link active">Login</a>
+                <a href="/admin-login" class="navbar-link">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container-narrow" style="padding-top: 40px; padding-bottom: 40px;">
+        <div class="text-center mb-8">
+            <h1>Face Recognition Login</h1>
+            <p class="text-muted">Position your face in front of the camera</p>
+        </div>
+
+        <!-- Instructions Card -->
+        <div class="card mb-6">
+            <h3 class="card-title" style="font-size: 14px;">Instructions</h3>
+            <ul style="list-style: none; padding: 0; font-size: 14px; color: var(--color-text-secondary);">
+                <li style="margin-bottom: 8px;">• Ensure good lighting for accurate recognition</li>
+                <li style="margin-bottom: 8px;">• Look directly at the camera</li>
+                <li style="margin-bottom: 8px;">• Wait for the system to verify your identity</li>
+                <li>• Attendance will be marked automatically</li>
+            </ul>
+        </div>
+
+        <!-- Camera Section -->
+        <div class="camera-container" id="cameraContainer">
+            <video id="video" class="camera-video" autoplay playsinline></video>
+            <canvas id="canvas" class="camera-canvas"></canvas>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="camera-status">
+            <div class="flex items-center justify-center gap-3">
+                <div class="loading-spinner"></div>
+                <span>Loading face recognition models...</span>
+            </div>
+        </div>
+
+        <!-- Status Display -->
+        <div id="statusDisplay" class="camera-status hidden">
+            <span id="statusText">Initializing camera...</span>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorMessage" class="alert alert-error hidden"></div>
+
+        <!-- Success Message -->
+        <div id="successMessage" class="alert alert-success hidden"></div>
+    </div>
+
+    <!-- Face-api.js -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+        // Configuration
+        const MODELS_URL = '../models/';
+        const MIN_CONFIDENCE = 0.6;
+        const REDIRECT_DELAY = 2000;
+
+        // State
+        let video, canvas, ctx;
+        let isProcessing = false;
+        let loginAttempted = false;
+
+        // DOM Elements
+        const loadingState = document.getElementById('loadingState');
+        const statusDisplay = document.getElementById('statusDisplay');
+        const statusText = document.getElementById('statusText');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        // Update status text
+        function updateStatus(message, type = 'info') {
+            statusText.textContent = message;
+            statusDisplay.classList.remove('hidden');
+
+            if (type === 'error') {
+                statusDisplay.style.borderColor = 'var(--color-error)';
+                statusDisplay.style.color = 'var(--color-error)';
+            } else if (type === 'success') {
+                statusDisplay.style.borderColor = 'var(--color-success)';
+                statusDisplay.style.color = 'var(--color-success)';
+            } else {
+                statusDisplay.style.borderColor = 'var(--color-border)';
+                statusDisplay.style.color = 'var(--color-text-secondary)';
+            }
+        }
+
+        // Show error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        // Show success
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.classList.remove('hidden');
+            updateStatus(message, 'success');
+        }
+
+        // Load models
+        async function loadModels() {
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODELS_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODELS_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODELS_URL)
+                ]);
+
+                loadingState.classList.add('hidden');
+                console.log('Models loaded successfully');
+                startCamera();
+            } catch (error) {
+                loadingState.classList.add('hidden');
+                showError('Failed to load recognition models: ' + error.message);
+            }
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                updateStatus('Initializing camera...');
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: 640,
+                        height: 480,
+                        facingMode: 'user'
+                    }
+                });
+
+                video.srcObject = stream;
+
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    updateStatus('Waiting for face detection...');
+                    detectAndLogin();
+                });
+            } catch (error) {
+                showError('Camera access denied. Please allow camera access in your browser settings and refresh the page.');
+                console.error('Camera error:', error);
+            }
+        }
+
+        // Detect face and login
+        async function detectAndLogin() {
+            if (!video.videoWidth || loginAttempted) return;
+
+            try {
+                const detections = await faceapi
+                    .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
+                    .withFaceLandmarks()
+                    .withFaceDescriptors();
+
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (detections.length === 0) {
+                    updateStatus('Waiting for face detection...');
+                } else if (detections.length > 1) {
+                    updateStatus('Multiple faces detected. Please ensure only one person is in frame.', 'error');
+                } else {
+                    // One face detected
+                    const detection = detections[0];
+                    const box = detection.detection.box;
+
+                    // Draw bounding box
+                    ctx.strokeStyle = 'var(--color-primary)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                    updateStatus('Face detected, verifying identity...');
+
+                    // Attempt login
+                    if (!isProcessing) {
+                        isProcessing = true;
+                        await attemptLogin(detection.descriptor);
+                    }
+                }
+
+                // Continue loop
+                if (!loginAttempted) {
+                    setTimeout(detectAndLogin, 100);
+                }
+            } catch (error) {
+                console.error('Detection error:', error);
+                setTimeout(detectAndLogin, 100);
+            }
+        }
+
+        // Attempt login
+        async function attemptLogin(faceDescriptor) {
+            try {
+                const response = await fetch('/api/face-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        descriptor: Array.from(faceDescriptor)
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    loginAttempted = true;
+
+                    let message = `Welcome, ${result.student_name}!`;
+
+                    if (result.attendance_marked) {
+                        message += ' Attendance marked successfully.';
+                    } else if (result.existing_time) {
+                        message += ` Attendance already marked today at ${result.existing_time}.`;
+                    }
+
+                    showSuccess(message);
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, REDIRECT_DELAY);
+                } else {
+                    isProcessing = false;
+                    updateStatus('Face not recognized. Access denied.', 'error');
+                    setTimeout(() => {
+                        updateStatus('Please try again...');
+                    }, 3000);
+                }
+            } catch (error) {
+                isProcessing = false;
+                showError('Login failed: ' + error.message);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            video = document.getElementById('video');
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            loadModels();
+        });
+    </script>
+</body>
+
+</html>
